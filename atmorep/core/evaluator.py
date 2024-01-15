@@ -14,151 +14,179 @@
 #
 ####################################################################################################
 
-import numpy as np
-import os
-import code
-
 import datetime
+from abc import ABC, abstractmethod, abstractclassmethod
 
+import numpy as np
 import wandb
 
 from atmorep.core.trainer import Trainer_BERT
-from atmorep.utils.utils import Config
-from atmorep.utils.utils import setup_ddp
-from atmorep.utils.utils import setup_wandb
-from atmorep.utils.utils import init_torch
-from atmorep.utils.utils import NetMode
-import atmorep.utils.utils as utils
+from atmorep.utils.utils import Config, setup_wandb, setup_hpc, NetMode
 
-import atmorep.config.config as config
-
-class Evaluator( Trainer_BERT) :
-
-  ##############################################
-  def __init__( self, cf, devices) :
-    Trainer_BERT.__init__( self, cf, devices)
-
-  ##############################################
-  def parse_args( cf, args) :
-
-    # set/over-write options as desired
-    for (key,val) in args.items() :
-      if '[' in key :  # handle lists, e.g. fields[0][2]
-        key_split = key.split( '[')
-        k, v = key_split[0], key_split[1:]
-        v = [int(a[0]) for a in v]
-        utils.list_replace_rec( getattr( cf, k), v, val)
-      else :
-        setattr( cf, key, val)
-
-  ##############################################
-  @staticmethod
-  def run( cf, model_id, model_epoch, devices) :
-
-    # set/over-write options as desired
-    evaluator = Evaluator.load( cf, model_id, model_epoch, devices)
-    evaluator.model.load_data( NetMode.test) 
-    if 0 == cf.par_rank :
-      cf.print()
-      cf.write_json( wandb)
-    evaluator.validate( 0, cf.BERT_strategy)
-
-  ##############################################
-  @staticmethod
-  def evaluate( mode, model_id, args = {}, model_epoch=-2) :
-
-    # SLURM_TASKS_PER_NODE is controlled by #SBATCH --ntasks-per-node=1; should be 1 for multiformer
-    with_ddp = True
-    if '-1' == os.environ.get('MASTER_ADDR', '-1') :
-      with_ddp = False
-      num_accs_per_task = 1 
-    else :
-      num_accs_per_task = int( 4 / int( os.environ.get('SLURM_TASKS_PER_NODE', '1')[0] ))
-    devices = init_torch( num_accs_per_task)
-    par_rank, par_size = setup_ddp( with_ddp)
-
-    cf = Config().load_json( model_id)
-    cf.with_wandb = True
-    cf.with_ddp = with_ddp
-    cf.par_rank = par_rank
-    cf.par_size = par_size
-    # overwrite old config
-    cf.data_dir = str(config.path_data)
-    cf.attention = False
-    setup_wandb( cf.with_wandb, cf, par_rank, '', mode='offline')
-    if 0 == cf.par_rank :
-      print( 'Running Evaluate.evaluate with mode =', mode)
-
-    cf.num_loader_workers = cf.loader_num_workers
-    cf.data_dir = './data/'
-
-    func = getattr( Evaluator, mode)
-    func( cf, model_id, model_epoch, devices, args)
-
-  ##############################################
-  @staticmethod
-  def BERT( cf, model_id, model_epoch, devices, args = {}) :
-
-    cf.lat_sampling_weighted = False
-    cf.BERT_strategy = 'BERT'
-    cf.log_test_num_ranks = 4
-
-    Evaluator.parse_args( cf, args)
-
-    Evaluator.run( cf, model_id, model_epoch, devices)
-
-  ##############################################
-  @staticmethod
-  def forecast( cf, model_id, model_epoch, devices, args = {}) :
-
-    cf.lat_sampling_weighted = False
-    cf.BERT_strategy = 'forecast'
-    cf.log_test_num_ranks = 4
-    cf.forecast_num_tokens = 1  # will be overwritten when user specified
-
-    Evaluator.parse_args( cf, args)
     
-    Evaluator.run( cf, model_id, model_epoch, devices)
+class Evaluator(ABC):
+  mode = None
+  _modes = dict()
   
-  ##############################################
-  @staticmethod
-  def global_forecast( cf, model_id, model_epoch, devices, args = {}) :
-
-    cf.BERT_strategy = 'forecast'
-    cf.batch_size_test = 24
-    cf.num_loader_workers = 1
-    cf.log_test_num_ranks = 1
-
-    Evaluator.parse_args( cf, args)
-
-    dates = args['dates']
-
-    evaluator = Evaluator.load( cf, model_id, model_epoch, devices)
-    evaluator.model.set_global( NetMode.test, np.array( dates))
-    if 0 == cf.par_rank :
-      cf.print()
-      cf.write_json( wandb)
-    evaluator.validate( 0, cf.BERT_strategy)
-
-  ##############################################
-  @staticmethod
-  def global_forecast_range( cf, model_id, model_epoch, devices, args = {}) :
-
-    cf.forecast_num_tokens = 2
-    cf.BERT_strategy = 'forecast'
-    cf.token_overlap = [2, 6]
-
-    cf.batch_size_test = 24
-    cf.num_loader_workers = 1
-    cf.log_test_num_ranks = 1
+  # registers every subclass that properly implements a mode
+  def __new__(cls, name, bases, attrs):
+    new_cls = super().__new__(cls, name, bases, attrs)
+    if new_cls.mode is not None: # new_cls implements a mode
+      cls._modes[new_cls.mode] = new_cls
     
-    Evaluator.parse_args( cf, args)
+    return new_cls
+  
+  @classmethod
+  def evaluate(cls, mode, model_id, args={}, model_epoch=-2):
+    try:
+      evaluation_type = cls._modes[mode]
+      evaluation_mode = evaluation_type(model_id, model_epoch, args)
+      evaluation_mode.run()
+    except KeyError as e:
+      print(f"no such evaluation mode: {mode}")
+    
+  
+  def __init__(self, model_id, model_epoch, args):
+    config, devices = Evaluator.setup(model_id)
+    
+    config.add_args(self.get_config_options())
+    config.add_args(args)
+    self.config = config
+    self.evaluator = Trainer_BERT.load(
+      self.config, model_id, model_epoch, devices
+    )
+  
+  @classmethod
+  def setup(cls, model_id):
+    config = Config(wandb_id=model_id)
+    
+    with_ddp, par_rank, par_size, devices = setup_hpc()
+    # overwrite old config
+    config.add_args(
+      cls.get_hpc_options(
+        with_ddp, par_rank, par_size, config.loader_num_workers
+        )
+    )
+    
+    setup_wandb(config.with_wandb, config, par_rank, '', mode='offline')
+    config.attention = False
+    
+    if config.par_rank == 0:
+      print( 'Running Evaluate.evaluate with mode =', cls.mode)
+    
+    return config, devices
+  
+  @staticmethod
+  def get_hpc_options(with_ddp, par_rank, par_size, loader_num_workers):
+    return dict(
+      with_wandb = True,
+      with_ddp = with_ddp,
+      par_rank = par_rank,
+      par_size = par_size,
+      num_loader_workers = loader_num_workers,
+      data_dir = './data/',
+    )
+  
+  @abstractclassmethod
+  def get_mode(cls):
+    pass
+    
+  @abstractclassmethod
+  def get_config_options(cls):
+    pass
+  
+  def run(self):
+    self.prepare_model()
+    self.wandb_output(self.config)
+    self.run_model()
 
-    if 0 == cf.par_rank :
-      cf.print()
-      cf.write_json( wandb)
+  def prepare_model(self):
+    self.evaluator.model.load_data(NetMode.test)  
+  
+  def wandb_output(self):
+    if self.config.par_rank == 0:
+      self.config.print()
+      self.config.write_json(wandb)
+  
+  @abstractmethod
+  def run_model(self):
+    pass
 
-    # generate temporal sequence
+
+class Global(Evaluator, ABC):
+  def prepare_model(self):
+    dates = self.get_dates()
+    self.evaluator.model.set_global(NetMode.test, np.array(dates))
+  
+  @abstractmethod
+  def get_dates(self, args):
+    pass
+
+
+class Validation(Evaluator):
+  def run_model(self):
+    self.evaluator.validate(0, self.config.BERT_strategy)
+
+
+class Evaluation(Evaluator):
+  def run_model(self):
+    self.evaluator.evaluate( 0, self.config.BERT_strategy)
+
+    
+class BERT(Validation):
+  @classmethod
+  def get_config_options(cls):
+    return dict(
+      lat_sampling_weighted = False,
+      BERT_strategy = 'BERT',
+      log_test_num_ranks = 4
+    )
+
+  
+class Forecast(Validation):
+  mode = "forecast"
+  
+  @classmethod
+  def get_config_options(cls):
+    return dict(
+      lat_sampling_weighted = False,
+      BERT_strategy = 'forecast',
+      log_test_num_ranks = 4,
+      forecast_num_tokens = 1  # will be overwritten when user specified
+    )
+    
+    
+class TemporalInterpolation(Validation):
+  mode = "temporal_interpolation"
+  
+  @classmethod
+  def get_config_options(cls):
+    return dict(
+      BERT_strategy = 'temporal_interpolation',
+      log_test_num_ranks = 4
+    )
+
+
+class GlobalForecast(Validation, Global):
+  mode = "global_forecast"
+  
+  @classmethod
+  def get_config_options(cls):
+    return dict(
+      BERT_strategy = 'forecast',
+      batch_size_test = 24,
+      num_loader_workers = 1,
+      log_test_num_ranks = 1
+    )
+  
+  def get_dates(self):
+    return self.config["dates"]
+
+
+class GlobalForecastRange(Evaluation, Global):
+  mode = "global_forecast_range"
+  
+  def get_dates(self):
     dates = [ ]
     num_steps = 31*2 
     cur_date = [2018, 1, 1, 0+6] #6h models
@@ -167,39 +195,29 @@ class Evaluator( Trainer_BERT) :
       tdate += datetime.timedelta( hours = 12 )
       cur_date = [tdate.year, tdate.month, tdate.day, tdate.hour]
       dates += [cur_date]
+    
+    return dates
 
-    evaluator = Evaluator.load( cf, model_id, model_epoch, devices)
-    evaluator.model.set_global( NetMode.test, np.array( dates))
-    evaluator.evaluate( 0, cf.BERT_strategy)
 
-  ##############################################
-  @staticmethod
-  def temporal_interpolation( cf, model_id, model_epoch, devices, args = {}) :
-
-    # set/over-write options
-    cf.BERT_strategy = 'temporal_interpolation'
-    cf.log_test_num_ranks = 4
-
-    Evaluator.run( cf, model_id, model_epoch, devices)
-
-  ##############################################
-  @staticmethod
-  def fixed_location( cf, model_id, model_epoch, devices, args = {}) :
-
-    # set/over-write options
-    cf.BERT_strategy = 'BERT'
-    cf.num_files_test = 2
-    cf.num_patches_per_t_test = 2
-    cf.log_test_num_ranks = 4
-
+class FixedLocation(Evaluator):
+  mode = "fixed_location"
+  
+  @classmethod
+  def get_config_options(cls):
+    return dict(
+      BERT_strategy = "BERT",
+      num_files_test = 2,
+      num_patches_per_t_test = 2,
+      log_test_num_ranks = 4
+    )
+    
+  def prepare_model(self):
     pos = [ 33.55 , 18.25 ]
     years = [2018]
     months = list(range(1,12+1))
     num_t_samples_per_month = 2
-
-    evaluator = Evaluator.load( cf, model_id, model_epoch, devices)
-    evaluator.model.set_location( NetMode.test, pos, years, months, num_t_samples_per_month)
-    if 0 == cf.par_rank :
-      cf.print()
-      cf.write_json( wandb)
-    evaluator.evaluate( 0)
+    
+    self.evaluator.model.set_location( NetMode.test, pos, years, months, num_t_samples_per_month)
+    
+  def run_model(self):
+    self.evaluator.evaluate( 0)

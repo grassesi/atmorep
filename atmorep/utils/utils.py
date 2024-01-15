@@ -51,8 +51,9 @@ def json_default(o):
 ####################################################################################################
 class Config :
 
-  def __init__( self) :
-    pass
+  def __init__( self, wandb_id = None) :
+    if wandb:
+      self.load_json(wandb_id)
 
   def add_to_wandb( self, wandb) :
     wandb.config.update( self.__dict__)
@@ -120,6 +121,17 @@ class Config :
       self.model_id = self.wandb_id
 
     return self
+  
+  def add_args(self, args) : # static ???
+    # set/over-write options as desired
+    for (key,val) in args.items() :
+      if '[' in key :  # handle lists, e.g. fields[0][2]
+        key_split = key.split( '[')
+        k, v = key_split[0], key_split[1:]
+        v = [int(a[0]) for a in v]
+        list_replace_rec( getattr( self, k), v, val)
+      else :
+        setattr( self, key, val)
 
 ####################################################################################################
 def identity( func, *args) :
@@ -175,9 +187,22 @@ def setup_ddp( with_ddp = True) :
 
   return rank, size
 
+def setup_hpc():
+    # SLURM_TASKS_PER_NODE is controlled by #SBATCH --ntasks-per-node=1; should be 1 for multiformer
+    with_ddp = True
+    if '-1' == os.environ.get('MASTER_ADDR', '-1') :
+      with_ddp = False
+      num_accs_per_task = 1 
+    else :
+      num_accs_per_task = int( 4 / int( os.environ.get('SLURM_TASKS_PER_NODE', '1')[0] ))
+    devices = init_torch( num_accs_per_task)
+    par_rank, par_size = setup_ddp( with_ddp)
+    
+    return with_ddp, par_rank, par_size, devices
+
 ####################################################################################################
 def setup_wandb( with_wandb, cf, rank, project_name = None, entity = 'atmorep', wandb_id = None,
-                 mode='offline') :
+                 mode='offline') : # TODO: infer with_wandb from cf
 
   if with_wandb :
     wandb.require("service")
@@ -327,10 +352,10 @@ def token_info_to_time( token_info, return_pd = True) :
 ####################################################################################################
 def list_replace_rec( list, idxs, val) :
   if len(idxs) == 1 :
-    list.__setitem__( idxs[0], val)
+    list[idxs[0]] = val
   else :
-    list_replace_rec( list.__getitem__( idxs[0]), idxs[1:], val)
-    list.__setitem__( idxs[0], list.__getitem__( idxs[0]) )
+    list_replace_rec( list[idxs[0]], idxs[1:], val)
+    list[idxs[0]] = list[idxs[0]]
 
 ####################################################################################################
 def Gaussian( x, mu=0., std_dev=1.) :
