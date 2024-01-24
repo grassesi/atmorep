@@ -37,9 +37,7 @@ class BERT(Validation):
         )
 
   
-class Forecast(Validation):
-    mode = "forecast"
-  
+class Forecast(Validation, mode="forecast"):
     @classmethod
     def get_config_options(cls):
         return dict(
@@ -50,9 +48,7 @@ class Forecast(Validation):
         )
     
     
-class TemporalInterpolation(Validation):
-    mode = "temporal_interpolation"
-  
+class TemporalInterpolation(Validation, mode = "temporal_interpolation"):
     @classmethod
     def get_config_options(cls):
         return dict(
@@ -61,9 +57,7 @@ class TemporalInterpolation(Validation):
         )
 
 
-class GlobalForecast(Validation, Global):
-    mode = "global_forecast"
-  
+class GlobalForecast(Validation, Global, mode = "global_forecast"):
     @classmethod
     def get_config_options(cls):
         return dict(
@@ -74,12 +68,10 @@ class GlobalForecast(Validation, Global):
         )
   
     def get_dates(self):
-        return self.config["dates"]
+        return self.config.dates
 
 
-class GlobalForecastRange(Evaluation, Global):
-    mode = "global_forecast_range"
-  
+class GlobalForecastRange(Evaluation, Global, mode = "global_forecast_range"):
     def get_dates(self):
         dates = [ ]
         num_steps = 31*2 
@@ -95,9 +87,7 @@ class GlobalForecastRange(Evaluation, Global):
         return dates
 
 
-class FixedLocation(Evaluator):
-    mode = "fixed_location"
-  
+class FixedLocation(Evaluator, mode = "fixed_location"):  
     @classmethod
     def get_config_options(cls):
         return dict(

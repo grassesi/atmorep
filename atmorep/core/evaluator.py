@@ -27,17 +27,15 @@ class Evaluator(ABC):
   _modes = dict()
   
   # registers every subclass that properly implements a mode
-  def __new__(cls, name, bases, attrs):
-    new_cls = super().__new__(cls, name, bases, attrs)
-    if new_cls.mode is not None: # new_cls implements a mode
-      cls._modes[new_cls.mode] = new_cls
-    
-    return new_cls
+  def __init_subclass__(cls, mode=None, **kwargs) -> None:
+     super().__init_subclass__(**kwargs)
+     if mode is not None:
+      Evaluator._modes[mode] = cls
   
-  @classmethod
-  def evaluate(cls, mode, model_id, args={}, model_epoch=-2):
+  @staticmethod
+  def evaluate(mode, model_id, args={}, model_epoch=-2):
     try:
-      evaluation_type = cls._modes[mode]
+      evaluation_type = Evaluator._modes[mode]
       evaluation_mode = evaluation_type(model_id, model_epoch, args)
       evaluation_mode.run()
     except KeyError as e:
@@ -84,10 +82,6 @@ class Evaluator(ABC):
       num_loader_workers = loader_num_workers,
       data_dir = './data/',
     )
-  
-  @abstractclassmethod
-  def get_mode(cls):
-    pass
     
   @abstractclassmethod
   def get_config_options(cls):
@@ -95,7 +89,7 @@ class Evaluator(ABC):
   
   def run(self):
     self.prepare_model()
-    self.wandb_output(self.config)
+    self.wandb_output()
     self.run_model()
 
   def prepare_model(self):
