@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
-import datetime
+import datetime as dt
+from itertools import product, chain
+from collections.abc import Iterable
 
 import numpy as np
+import pandas as pd
 
 from atmorep.core.evaluator import Evaluator
 from atmorep.utils.utils import NetMode
@@ -70,6 +73,40 @@ class GlobalForecast(Validation, Global, mode = "global_forecast"):
     def get_dates(self):
         return self.config.dates
 
+class GlobalForecastYears(GlobalForecast, mode="global_forecast_years"):
+    def get_dates(self):
+        dates = chain(*
+            (self.get_dates_in_year(year) for year
+            in self.config.years_inference)
+        )
+        datetimes = [
+            [date.year, date.month, date.day, hour] for date, hour
+            in product(dates, self.config.hours_inference)
+        ]
+        
+        for datetime in datetimes:
+            print(datetime)
+        
+        return datetimes
+    
+    @staticmethod
+    def get_dates_in_year(year) -> Iterable[dt.datetime]:
+        start, end = dt.datetime(year, 1, 1), dt.datetime(year, 12, 31)
+        return pd.period_range(start, end, freq="D")
+
+class IconCmip(Evaluator, ABC):
+    @classmethod
+    def get_config_options(cls):
+        return dict( # overwrite default data_dir path => load different dataset
+            data_dir = "./data/icon_cmip"
+        )
+
+class CmipGlobalForecastYears(
+    GlobalForecastYears, IconCmip, mode="cmip_global_forecast_years"
+):
+    pass
+    
+    
 
 class GlobalForecastRange(Evaluation, Global, mode = "global_forecast_range"):
     def get_dates(self):
@@ -77,10 +114,10 @@ class GlobalForecastRange(Evaluation, Global, mode = "global_forecast_range"):
         num_steps = 31*2 
         cur_date = [2018, 1, 1, 0+6] #6h models
         for _ in range(num_steps) :
-            tdate = datetime.datetime(
+            tdate = dt.datetime(
                 cur_date[0], cur_date[1], cur_date[2], cur_date[3]
             )
-            tdate += datetime.timedelta( hours = 12 )
+            tdate += dt.timedelta( hours = 12 )
             cur_date = [tdate.year, tdate.month, tdate.day, tdate.hour]
             dates += [cur_date]
     
