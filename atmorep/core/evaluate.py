@@ -14,12 +14,15 @@
 #
 ####################################################################################################
 
+import argparse
+import json
+
 from atmorep.core.evaluator import Evaluator
 
 if __name__ == '__main__':
 
   # models for individual fields
-  model_id = '4nvwbetz'     # vorticity
+  # model_id = '4nvwbetz'     # vorticity
   # model_id = 'oxpycr7w'     # divergence
   # model_id = '1565pb1f'     # specific_humidity
   # model_id = '3kdutwqb'     # total precip
@@ -48,10 +51,19 @@ if __name__ == '__main__':
   # mode, options = 'forecast', {'forecast_num_tokens' : 1} #, 'fields[0][2]' : [123, 137], 'attention' : False }
   
   # BERT forecast with patching to obtain global forecast
-  mode, options = 'global_forecast', { 'fields[0][2]' : [123, 137],
-                                       'dates' : [[2021, 2, 10, 12]],
-                                       'token_overlap' : [0, 0],
-                                       'forecast_num_tokens' : 1,
-                                       'attention' : False }
+  
+  parser = argparse.ArgumentParser(
+    prog="Atmorep-evaluate",
+    description="run atmorep for inference/evaluation"
+  )
+  parser.add_argument("mode", help="evaluation mode")
+  parser.add_argument("model_id", help="trained model to be used.")
+  parser.add_argument("options_file", help="json file for additional configuration")
+  
+  args = parser.parse_args()
+  
+  with open(args.options_file, "r") as f:
+    options = json.load(f)
 
-  Evaluator.evaluate( mode, model_id, options)
+  print(f"evaluating with {args.mode}, {args.model_id}, {options}")
+  Evaluator.evaluate(args.mode, args.model_id, args=options)
