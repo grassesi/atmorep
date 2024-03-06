@@ -79,7 +79,7 @@ class MultifieldDataSampler( torch.utils.data.IterableDataset):
     self.level_type = level_type
     self.smoothing = smoothing
 
-    self.file_path    = config.path_data
+    self.file_path    = config.PATH_DATA
     self.file_shape   = file_shape
     self.file_format  = file_format
     self.num_load = num_load

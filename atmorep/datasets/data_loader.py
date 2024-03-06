@@ -21,7 +21,7 @@ import xarray as xr
 from functools import partial
 
 import atmorep.utils.utils as utils
-from atmorep.config.config import year_base
+from atmorep.config.config import YEAR_BASE
 from atmorep.utils.utils import tokenize
 from atmorep.datasets.file_io import grib_file_loader, netcdf_file_loader, bin_file_loader
 
@@ -86,7 +86,7 @@ class DataLoader:
               days_month = utils.days_in_month( year, month-1)
               fname = fname_base.format( year, month_p, level_type, vl)
           else:
-              assert(year >= year_base)
+              assert(year >= YEAR_BASE)
               year_p = str(year-1).zfill(2)
               days_month = utils.days_in_month( year, 12)
               fname = fname_base.format( year-1, 12, level_type, vl)
@@ -109,7 +109,7 @@ class DataLoader:
               days_month = utils.days_in_month( year, month+1)
               fname = fname_base.format( year, month_p, level_type, vl)
           else:
-              assert(year >= year_base)
+              assert(year >= YEAR_BASE)
               year_p = str(year+1).zfill(2)
               days_month = utils.days_in_month( year+1, 12)
               fname = fname_base.format( year_p, 12, level_type, vl)

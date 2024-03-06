@@ -82,10 +82,10 @@ class Trainer_Base() :
       self.tok_infos_trans = getattr( token_infos_transformations, 'identity')
 
     if 0 == cf.par_rank :
-      directory = Path( config.path_results, 'id{}'.format( cf.wandb_id))
+      directory = Path( config.PATH_RESULTS, 'id{}'.format( cf.wandb_id))
       if not os.path.exists(directory):
         os.makedirs( directory)
-      directory = Path( config.path_models, 'id{}'.format( cf.wandb_id))
+      directory = Path( config.PATH_MODELS, 'id{}'.format( cf.wandb_id))
       if not os.path.exists(directory):
         os.makedirs( directory)
 

@@ -78,7 +78,7 @@ def train_multi() :
   # general
   cf.comment = ''
   cf.file_format = 'grib'
-  cf.data_dir = str(config.path_data)
+  cf.data_dir = str(config.PATH_DATA)
   cf.level_type = 'ml'
   
   cf.fields = [ [ 'vorticity', [ 1, 2048, ['divergence', 'temperature'], 0 ], 
