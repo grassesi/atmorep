@@ -32,7 +32,7 @@ class NormalizerLocal() :
     for year in range(config.YEAR_BASE, config.YEAR_LAST+1) :
       for month in range(1, 12+1) :
         corr_fname = fname_base.format(
-          str(config.PATH_DATA),
+          str(data_root),
           field_info[0],
           field_info[0],
           year,

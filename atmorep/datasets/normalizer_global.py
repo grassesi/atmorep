@@ -28,7 +28,7 @@ class NormalizerGlobal() :
     fname_base = '{}/normalization/{}/global_normalization_mean_var_{}_{}{}.bin'
 
     fn = field_info[0]
-    corr_fname = fname_base.format( str(config.PATH_DATA), fn, fn, level_type, vlevel)
+    corr_fname = fname_base.format( str(data_root), fn, fn, level_type, vlevel)
     self.corr_data = np.fromfile(corr_fname, dtype=np.float32).reshape( (-1, 4))
 
   def normalize( self, year, month, data, coords = None) :
