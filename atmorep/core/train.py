@@ -91,7 +91,7 @@ def train() :
   # general
   cf.comment = ''
   cf.file_format = 'grib'
-  cf.data_dir = str(config.PATH_DATA)
+  cf.data_dir = str(config.PATH_DATA.relative_to(config.ATMOREP_REPO_ROOT))
   cf.level_type = 'ml'
   
   # format: list of fields where for each field the list is 

@@ -13,6 +13,7 @@
 #  license     :
 #
 ####################################################################################################
+from pathlib import Path
 
 import torch
 import numpy as np
@@ -25,6 +26,8 @@ import atmorep.utils.utils as utils
 from atmorep.utils.utils import identity
 from atmorep.utils.utils import NetMode
 from atmorep.utils.utils import get_model_filename
+
+from atmorep.config.config import ATMOREP_REPO_ROOT
 
 from atmorep.transformer.transformer_base import prepare_token
 from atmorep.transformer.transformer_base import checkpoint_wrapper
@@ -208,7 +211,8 @@ class AtmoRepData( torch.nn.Module) :
     self.pre_batch_targets = pre_batch_targets
 
     cf = self.net.cf
-    self.dataset_train = MultifieldDataSampler( cf.data_dir, cf.years_train, cf.fields,
+    data_dir = ATMOREP_REPO_ROOT / Path(cf.data_dir)
+    self.dataset_train = MultifieldDataSampler( data_dir, cf.years_train, cf.fields,
                                                 batch_size = cf.batch_size_start,
                                                 num_t_samples = cf.num_t_samples,
                                                 num_patches_per_t = cf.num_patches_per_t_train,
@@ -225,7 +229,7 @@ class AtmoRepData( torch.nn.Module) :
                                                 fields_targets = cf.fields_targets,
                                                 pre_batch_targets = self.pre_batch_targets )
                                       
-    self.dataset_test = MultifieldDataSampler( cf.data_dir, cf.years_test, cf.fields,
+    self.dataset_test = MultifieldDataSampler( data_dir, cf.years_test, cf.fields,
                                               batch_size = cf.batch_size_test,
                                               num_t_samples = cf.num_t_samples,
                                               num_patches_per_t = cf.num_patches_per_t_test,

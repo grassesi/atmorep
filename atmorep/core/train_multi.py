@@ -78,7 +78,7 @@ def train_multi() :
   # general
   cf.comment = ''
   cf.file_format = 'grib'
-  cf.data_dir = str(config.PATH_DATA)
+  cf.data_dir = str(config.PATH_DATA.relative_to(config.ATMOREP_REPO_ROOT))
   cf.level_type = 'ml'
   
   cf.fields = [ [ 'vorticity', [ 1, 2048, ['divergence', 'temperature'], 0 ], 
