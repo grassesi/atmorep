@@ -22,7 +22,9 @@ import atmorep.config.config as config
 
 class NormalizerLocal() :
 
-  def __init__(self, field_info, vlevel, file_shape, data_type = 'era5', level_type = 'ml') :
+  def __init__(
+    self, data_root, field_info, vlevel, file_shape, data_type = 'era5', level_type = 'ml'
+  ) :
 
     fname_base = '{}/normalization/{}/normalization_mean_var_{}_y{}_m{:02d}_{}{}.bin'
 

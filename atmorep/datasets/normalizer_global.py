@@ -20,7 +20,9 @@ import atmorep.config.config as config
 
 class NormalizerGlobal() :
 
-  def __init__(self, field_info, vlevel, file_shape, data_type = 'era5', level_type = 'ml') :
+  def __init__(
+    self, data_root, field_info, vlevel, file_shape, data_type = 'era5', level_type = 'ml'
+  ) :
 
     # TODO: use path from config and pathlib.Path()
     fname_base = '{}/normalization/{}/global_normalization_mean_var_{}_{}{}.bin'

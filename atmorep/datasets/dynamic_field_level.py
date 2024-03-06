@@ -91,9 +91,13 @@ class DynamicFieldLevel() :
     self.data_field = None
 
     if self.corr_type == 'global' :
-      self.normalizer = NormalizerGlobal( field_info, vl, self.file_shape, data_type)
+      self.normalizer = NormalizerGlobal(
+        self.file_path, field_info, vl, self.file_shape, data_type
+      )
     else :
-      self.normalizer = NormalizerLocal( field_info, vl, self.file_shape, data_type)
+      self.normalizer = NormalizerLocal(
+        self.file_path, field_info, vl, self.file_shape, data_type
+      )
 
     self.loader = DataLoader( self.file_path, self.file_shape, data_type,
                               file_format = self.file_format, level_type = self.level_type, 
