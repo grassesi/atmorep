@@ -160,8 +160,14 @@ cython_debug/
 #.idea/
 
 # data files
+data
+models
+results
 *.zarr
 
 # image files
 *.png
+
+# wandb
+wandb
 
