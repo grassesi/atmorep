@@ -51,7 +51,7 @@ def write_batch_item_BERT_vertical(
     m_lvl.create_dataset( 'lon', data=lon[fidx][bidx][vidx])
 
 def get_zarr_store(name, model_id, epoch, zarr_store_type):
-  fname =  f'{config.PATH_RESULTS}/id{model_id}/results_id{model_id}_epoch{epoch:05d}' + '_{}.zarr'
+  fname =  f'{config.PATHES.results}/id{model_id}/results_id{model_id}_epoch{epoch:05d}' + '_{}.zarr'
   return zarr_store_type( fname.format(name))
 
 def write_zarr(
@@ -131,7 +131,7 @@ def write_BERT(
 
 def write_attention(model_id, epoch, batch_idx, levels, attn, attn_coords, zarr_store_type = 'ZipStore' ) :
 
-  fname =  f'{config.PATH_RESULTS}/id{model_id}/results_id{model_id}_epoch{epoch:05d}' + '_{}.zarr'
+  fname =  f'{config.PATHES.results}/id{model_id}/results_id{model_id}_epoch{epoch:05d}' + '_{}.zarr'
   zarr_store = getattr( zarr, zarr_store_type)
 
   store_attn = zarr_store( fname.format( 'attention'))

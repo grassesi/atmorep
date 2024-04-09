@@ -1,1 +1,1 @@
-from evaluation_modes import *
+from atmorep.core.evaluation_modes import *

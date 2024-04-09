@@ -27,7 +27,7 @@ from atmorep.utils.utils import identity
 from atmorep.utils.utils import NetMode
 from atmorep.utils.utils import get_model_filename
 
-from atmorep.config.config import ATMOREP_REPO_ROOT
+from atmorep.config.config import PATHES
 
 from atmorep.transformer.transformer_base import prepare_token
 from atmorep.transformer.transformer_base import checkpoint_wrapper
@@ -211,7 +211,7 @@ class AtmoRepData( torch.nn.Module) :
     self.pre_batch_targets = pre_batch_targets
 
     cf = self.net.cf
-    data_dir = ATMOREP_REPO_ROOT / Path(cf.data_dir)
+    data_dir = PATHES.root / Path(cf.data_dir)
     self.dataset_train = MultifieldDataSampler( data_dir, cf.years_train, cf.fields,
                                                 batch_size = cf.batch_size_start,
                                                 num_t_samples = cf.num_t_samples,

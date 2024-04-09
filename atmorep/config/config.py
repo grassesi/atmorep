@@ -1,11 +1,30 @@
 from pathlib import Path
+from dataclasses import dataclass, asdict
 
-ATMOREP_REPO_ROOT = Path(__file__).parent.parent.parent
+_PATH_ROOT = Path(__file__).parent.parent.parent
+
 
 YEAR_BASE = 1979
 YEAR_LAST = 2022
 
-PATH_MODELS = ATMOREP_REPO_ROOT / 'models'
-PATH_RESULTS = ATMOREP_REPO_ROOT / 'results'
+_PATH_DATA = _PATH_ROOT / 'data'
+_PATH_MODELS = _PATH_ROOT / 'models'
+_PATH_RESULTS = _PATH_ROOT / 'results'
 
-PATH_DATA = ATMOREP_REPO_ROOT / 'data'
+@dataclass
+class PathConfig:
+    root: Path
+    data: Path
+    models: Path
+    results: Path
+    
+    def from_path_config(self, config: "PathConfig"):
+        self.root = config.root
+        self.data = config.data
+        self.models = config.models
+        self.results = config.results
+        
+    def __str__(self):
+        return str(asdict(self))
+
+PATHES = PathConfig(_PATH_ROOT, _PATH_DATA, _PATH_MODELS, _PATH_RESULTS)

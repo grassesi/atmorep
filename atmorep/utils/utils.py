@@ -67,11 +67,11 @@ class Config :
         print("{} : {}".format( key, value))
 
   def create_dirs( self, wandb) :
-    dirname = Path( config.PATH_RESULTS, 'models/id{}'.format( wandb.run.id))
+    dirname = Path( config.PATHES.results, 'models/id{}'.format( wandb.run.id))
     if not os.path.exists(dirname):
       os.makedirs( dirname)
       
-    dirname = Path( config.PATH_RESULTS, 'id{}'.format( wandb.run.id))
+    dirname = Path( config.PATHES.results, 'id{}'.format( wandb.run.id))
     if not os.path.exists(dirname):
       os.makedirs( dirname)
       
@@ -83,34 +83,35 @@ class Config :
     json_str = json.dumps(self.__dict__ )
 
     # save in directory with model files
-    dirname = Path( config.PATH_RESULTS, 'models/id{}'.format( wandb.run.id))
-    if not os.path.exists(dirname):
-      os.makedirs( dirname)
-    fname =Path(config.PATH_RESULTS,'models/id{}/model_id{}.json'.format(wandb.run.id,wandb.run.id))
+    dirname = Path(config.PATHES.results) / 'models/id{}'.format( wandb.run.id)
+    if not dirname.is_dir():
+      dirname.mkdir()
+      
+    fname = dirname / f"model_id{wandb.run.id}.json"
     with open(fname, 'w') as f :
       f.write( json_str)
 
     # also save in results directory
-    dirname = Path( config.PATH_RESULTS,'id{}'.format( wandb.run.id))
-    if not os.path.exists(dirname):
-      os.makedirs( dirname)
-    fname = Path( dirname, 'model_id{}.json'.format( wandb.run.id))
+    dirname = config.PATHES.results / f'id{wandb.run.id}'
+    if not dirname.exists():
+      dirname.mkdir()
+      
+    fname = dirname / f'model_id{wandb.run.id}.json'
     with open(fname, 'w') as f :
       f.write( json_str)
 
   def load_json( self, wandb_id) :
-
     if '/' in wandb_id :   # assumed to be full path instead of just id
-      fname = wandb_id
+      fname = Path(wandb_id)
     else :
-      fname = Path( config.PATH_MODELS, 'id{}/model_id{}.json'.format( wandb_id, wandb_id))
+      fname = config.PATHES.models / f'id{wandb_id}/model_id{wandb_id}.json'
 
     try :
       with open(fname, 'r') as f :
         json_str = f.readlines() 
     except IOError :
       # try path used for logging training results and checkpoints
-      fname = Path( config.PATH_RESULTS, '/models/id{}/model_id{}.json'.format( wandb_id, wandb_id))
+      fname = config.PATHES.results / f'models/id{wandb_id}/model_id{wandb_id}.json'
       with open(fname, 'r') as f :
         json_str = f.readlines()
 
@@ -277,10 +278,10 @@ def get_model_filename( model = None, model_id = '', epoch=-2, with_model_path =
   if epoch > -2 :
     # model_file = Path( config.path_results, 'models/id{}/{}_id{}_epoch{}.mod'.format(
     #                                                        model_id, name, model_id, epoch))
-    model_file = Path( config.PATH_MODELS, mpath, '{}_id{}_epoch{}.mod'.format(
+    model_file = Path( config.PATHES.models, mpath, '{}_id{}_epoch{}.mod'.format(
                                                            name, model_id, epoch))
   else :
-    model_file = Path( config.PATH_MODELS, mpath, '{}_id{}.mod'.format( name, model_id))
+    model_file = Path( config.PATHES.models, mpath, '{}_id{}.mod'.format( name, model_id))
       
   return model_file
 

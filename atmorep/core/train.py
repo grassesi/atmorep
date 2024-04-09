@@ -26,7 +26,6 @@ from atmorep.utils.utils import Config
 from atmorep.utils.utils import setup_ddp
 from atmorep.utils.utils import setup_wandb
 from atmorep.utils.utils import init_torch
-import atmorep.utils.utils as utils
 
 
 ####################################################################################################
@@ -91,7 +90,7 @@ def train() :
   # general
   cf.comment = ''
   cf.file_format = 'grib'
-  cf.data_dir = str(config.PATH_DATA.relative_to(config.ATMOREP_REPO_ROOT))
+  cf.data_dir = str(config.PATHES.data.relative_to(config.PATHES.root))
   cf.level_type = 'ml'
   
   # format: list of fields where for each field the list is 
