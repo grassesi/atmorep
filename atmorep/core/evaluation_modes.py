@@ -28,7 +28,10 @@ class Evaluation(Evaluator, ABC):
     def run_model(self):
         self.evaluator.evaluate( 0, self.config.BERT_strategy)
 
-    
+class Inference(Evaluator, ABC):
+    def run_model(self):
+        self.evaluator.predict(self.config.BERT_strategy)
+
 class BERT(Validation):
     mode = "BERT"
     @classmethod
