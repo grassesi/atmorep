@@ -46,6 +46,9 @@ class AtmoRepData( torch.nn.Module) :
 
     super( AtmoRepData, self).__init__()
     
+    self.dataset_train = None
+    self.dataset_test = None
+    
     self.data_loader_test = None
     self.data_loader_train = None
     self.data_loader_iter = None
@@ -55,7 +58,41 @@ class AtmoRepData( torch.nn.Module) :
     # ensure that all data loaders have the same seed and hence load the same data
     self.rng_seed = net.cf.rng_seed 
     if not self.rng_seed :
-      self.rng_seed = int(torch.randint( 100000000, (1,))) 
+      self.rng_seed = int(torch.randint( 100000000, (1,)))
+    
+    self._mode = None
+    self._dataset = None
+  
+  @property
+  def mode(self):
+    return self._mode
+  
+  @mode.setter
+  def mode(self, mode: NetMode):
+    match mode:
+      case NetMode.train:
+        self.net.train()
+        self._dataset = self.dataset_train
+      case NetMode.test:
+        self.net.eval()
+        self._dataset = self.dataset_test
+      case _:
+        raise ValueError(f"Invalid NetMode: {self.mode}")
+
+    self._mode = mode
+ 
+  @property
+  def data_loader_iter(self):
+    return iter(self.data_loader)
+ 
+  @property
+  def dataset(self):
+    return self._dataset
+  
+  @property
+  def batch_size(self):
+    pass
+  
  
   ###################################################
   def load_data( self, mode : NetMode, batch_size = -1, num_loader_workers = -1) :
@@ -68,13 +105,9 @@ class AtmoRepData( torch.nn.Module) :
     if num_loader_workers < 0 :
       num_loader_workers = cf.num_loader_workers
 
-    if mode == NetMode.train :
-      self.data_loader_train = self._load_data( self.dataset_train, batch_size, num_loader_workers)
-    elif mode == NetMode.test :
-      batch_size = cf.batch_size_test
-      self.data_loader_test = self._load_data( self.dataset_test, batch_size, num_loader_workers)
-    else : 
-      assert False
+    self.mode = mode
+    self.data_loader = self._load_data(self.dataset, batch_size, num_loader_workers)    
+    
 
   ###################################################
   def _load_data( self, dataset, batch_size, num_loader_workers) :
@@ -90,60 +123,39 @@ class AtmoRepData( torch.nn.Module) :
 
   ###################################################
   def set_data( self, mode : NetMode, times_pos, batch_size = -1, num_loader_workers = -1) :
-
-    cf = self.net.cf
-    if batch_size < 0 :
-      batch_size = cf.batch_size_train if mode == NetMode.train else cf.batch_size_test
-    
-    dataset = self.dataset_train if mode == NetMode.train else self.dataset_test
-    dataset.set_data( times_pos, batch_size)
-
-    self._set_data( dataset, mode, batch_size, num_loader_workers)
-
+    self._set_data(mode, batch_size, num_loader_workers)
+    self.dataset.set_data(times_pos, batch_size)
+  
   ###################################################
   def set_global( self, mode : NetMode, times, batch_size = -1, num_loader_workers = -1) :
 
-    cf = self.net.cf
-    if batch_size < 0 :
-      batch_size = cf.batch_size_train if mode == NetMode.train else cf.batch_size_test
-    
-    dataset = self.dataset_train if mode == NetMode.train else self.dataset_test
-    dataset.set_global( times, batch_size, cf.token_overlap)
-
-    self._set_data( dataset, mode, batch_size, num_loader_workers)
+    self._set_data(mode, batch_size, num_loader_workers)
+    self.dataset.set_global(times, batch_size, self.net.cf.token_overlap)
 
   ###################################################
   def set_location( self, mode : NetMode, pos, years, months, num_t_samples_per_month, 
                           batch_size = -1, num_loader_workers = -1) :
 
-    cf = self.net.cf
-    if batch_size < 0 :
-      batch_size = cf.batch_size_train if mode == NetMode.train else cf.batch_size_test
-    
-    dataset = self.dataset_train if mode == NetMode.train else self.dataset_test
-    dataset.set_location( pos, years, months, num_t_samples_per_month, batch_size)
-
-    self._set_data( dataset, mode, batch_size, num_loader_workers)
+    self._set_data(mode, batch_size, num_loader_workers)
+    self.dataset.set_location(pos, years, months, num_t_samples_per_month, batch_size)
 
   ###################################################
-  def _set_data( self, dataset, mode : NetMode, batch_size = -1, loader_workers = -1) :
+  def _set_data( self, mode: NetMode, batch_size = -1, loader_workers = -1) :
     '''Private implementation for set_data, set_global'''
 
     cf = self.net.cf
     if loader_workers < 0 :
       loader_workers = cf.num_loader_workers
+    if batch_size < 0 :
+      batch_size = cf.batch_size_train if mode == NetMode.train else cf.batch_size_test
 
+    self.mode = mode
     loader_params = { 'batch_size': None, 'batch_sampler': None, 'shuffle': False, 
                       'num_workers': loader_workers, 'pin_memory': True}
     
-    if mode == NetMode.train :
-      self.data_loader_train = torch.utils.data.DataLoader( dataset, **loader_params, 
-                                                            sampler = None)
-    elif mode == NetMode.test :
-      self.data_loader_test = torch.utils.data.DataLoader( dataset, **loader_params, 
-                                                           sampler = None)
-    else :
-      assert False
+    self.data_loader = torch.utils.data.DataLoader(
+      self.dataset, **loader_params, sampler = None
+    )
 
   ###################################################
   def normalizer( self, field, vl_idx) :
@@ -164,27 +176,8 @@ class AtmoRepData( torch.nn.Module) :
     return normalizer
 
   ###################################################
-  def mode( self, mode : NetMode) :
-    
-    if mode == NetMode.train :
-      self.data_loader_iter = iter(self.data_loader_train)
-      self.net.train()
-    elif mode == NetMode.test :
-      self.data_loader_iter = iter(self.data_loader_test)
-      self.net.eval()
-    else :
-      assert False
-
-    self.cur_mode = mode
-
-  ###################################################
   def len( self, mode : NetMode) :
-    if mode == NetMode.train :
-      return len(self.data_loader_train)
-    elif mode == NetMode.test :
-      return len(self.data_loader_test)
-    else :
-      assert False
+    return len(self.data_loader)
 
   ###################################################
   def next( self) :
