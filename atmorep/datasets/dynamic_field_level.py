@@ -148,6 +148,7 @@ class DynamicFieldLevel() :
       self.data_field[j] = self.normalizer.normalize( year, month, self.data_field[j], coords)
 
       # basics statistics
+      print(f"INFO:: data shape: {self.data_field[0].shape}, len: {len(self.data_field)}")
       print( 'INFO:: data stats {} : {} / {}'.format( self.field_info[0], 
                                                       self.data_field[j].mean(), 
                                                       self.data_field[j].std()) )
