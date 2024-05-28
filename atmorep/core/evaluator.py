@@ -43,15 +43,12 @@ class Evaluator(ABC):
     
   
   def __init__(self, model_id, model_epoch, args):
-    config, devices = Evaluator.setup(model_id)
+    config, devices = self.setup(model_id)
     
     config.add_args(self.get_config_options())
     config.add_args(args)
     self.config = config
-    self.evaluator = Trainer_BERT.load(
-      self.config, model_id, model_epoch, devices
-    )
-  
+    self.evaluator = self.get_evaluator(self.config, model_id, model_epoch, devices)
   @classmethod
   def setup(cls, model_id):
     config = Config(wandb_id=model_id)
@@ -71,7 +68,11 @@ class Evaluator(ABC):
       print( 'Running Evaluate.evaluate with mode =', cls.mode)
     
     return config, devices
-  
+
+  @classmethod
+  def get_evaluator(cls, config, model_id, model_epoch, devices):
+        return Trainer_BERT.load(config, model_id, model_epoch, devices)
+
   @staticmethod
   def get_hpc_options(with_ddp, par_rank, par_size, loader_num_workers):
     return dict(
