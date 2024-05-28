@@ -190,6 +190,9 @@ class AtmoRepData( torch.nn.Module) :
   def next( self) :
     return next(self.data_loader_iter)
 
+  def __iter__(self):  # maybe split up iterator for ranks here ?
+    return self.data_loader_iter
+
   ###################################################
   def forward( self, xin) :
     pred = self.net.forward( xin)
