@@ -508,5 +508,6 @@ class MultifieldDataSampler( torch.utils.data.IterableDataset):
       if worker_info.id+1 == worker_info.num_workers :
         iter_end = int(temp)
 
+    print(f"split workload: {worker_info.num_workers}: {iter_start}-{iter_end}")
     return iter_start, iter_end
  
