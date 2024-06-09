@@ -231,7 +231,7 @@ class Trainer_Base() :
     model = self.model
     cf = self.cf
     
-    model.mode( NetMode.train)
+    model.mode = NetMode.train
     self.optimizer.zero_grad()
 
     loss_total = [[] for i in range(len(cf.losses)) ]
@@ -325,7 +325,7 @@ class Trainer_Base() :
     model = self.model
     cf = self.cf
 
-    model.mode( NetMode.train)
+    model.mode = NetMode.train
     self.optimizer.zero_grad()
 
     # See https://pytorch.org/tutorials/intermediate/tensorboard_profiler_tutorial.html
@@ -365,7 +365,7 @@ class Trainer_Base() :
     cf = self.cf
     BERT_strategy_train = cf.BERT_strategy
     cf.BERT_strategy = BERT_test_strategy
-    self.model.mode( NetMode.test)
+    self.model.mode = NetMode.test
     total_loss = 0.
     total_losses = torch.zeros( len(self.fields_prediction_idx) )
     test_len = 0
@@ -469,7 +469,7 @@ class Trainer_Base() :
   def evaluate( self, data_idx = 0, log = True):
 
     cf = self.cf
-    self.model.mode( NetMode.test)
+    self.model.mode = NetMode.test
     
     log_sources = []
     test_len = 0
