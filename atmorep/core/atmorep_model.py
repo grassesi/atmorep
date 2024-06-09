@@ -14,7 +14,10 @@
 #
 ####################################################################################################
 from pathlib import Path
+import itertools as it
 
+from atmorep.datasets.normalizer_local import NormalizerLocal
+from atmorep.datasets.sampling import DistributedSamples
 import torch
 import numpy as np
 import code
@@ -150,6 +153,17 @@ class AtmoRepData( torch.nn.Module) :
     self.data_loader = torch.utils.data.DataLoader(
       self.dataset, **loader_params, sampler = None
     )
+
+  def get_all_normalizers(
+    self, field_names: list[str], vlvls: list[int]
+  ) -> dict[tuple[str, int], NormalizerLocal]:
+    normalizers = {}
+    for field_idx, field_name, v_idx, vlvl in it.product(
+      enumerate(field_names), enumerate(vlvls)
+    ):
+      normalizers[field_name, vlvl] = self.normalizer(field_idx, v_idx)
+    
+    return normalizers
 
   ###################################################
   def normalizer( self, field, vl_idx) :
