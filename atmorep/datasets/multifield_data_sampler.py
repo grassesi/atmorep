@@ -348,10 +348,12 @@ class MultifieldDataSampler( torch.utils.data.IterableDataset):
         - (year,month) pairs should be a limited number since all data for these is loaded
     '''
 
-    # extract required years and months
-    years_months_all = np.array( [ [it[0], it[1]] for it in times_pos ], dtype=np.int64)
-    self.years_months = list( zip( np.unique(years_months_all[:,0]),
-                                   np.unique( years_months_all[:,1] )))
+        # extract required years and months
+    years_months_all = np.array(
+      [[it[0], it[1]] for it in times_pos], dtype=np.int64
+    )
+    years_months = np.unique(years_months_all, axis=0)
+    self.years_months = [tuple(ym) for ym in years_months]
 
     # generate all the data
     self.idxs_perm = np.zeros( (len(times_pos), 4))
