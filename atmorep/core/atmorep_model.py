@@ -60,6 +60,7 @@ class AtmoRepData( torch.nn.Module) :
     if not self.rng_seed :
       self.rng_seed = int(torch.randint( 100000000, (1,)))
     
+    self._batch_size = None
     self._mode = None
     self._dataset = None
   
@@ -72,10 +73,12 @@ class AtmoRepData( torch.nn.Module) :
     match mode:
       case NetMode.train:
         self.net.train()
+        self._batch_size = self.net.cf.batch_size_train
         self._dataset = self.dataset_train
       case NetMode.test:
         self.net.eval()
         self._dataset = self.dataset_test
+        self._batch_size = self.net.cf.batch_size_test
       case _:
         raise ValueError(f"Invalid NetMode: {self.mode}")
 
@@ -91,9 +94,8 @@ class AtmoRepData( torch.nn.Module) :
   
   @property
   def batch_size(self):
-    pass
+    return self.batch_size
   
- 
   ###################################################
   def load_data( self, mode : NetMode, batch_size = -1, num_loader_workers = -1) :
     '''Load data'''
@@ -143,13 +145,13 @@ class AtmoRepData( torch.nn.Module) :
   def _set_data( self, mode: NetMode, batch_size = -1, loader_workers = -1) :
     '''Private implementation for set_data, set_global'''
 
-    cf = self.net.cf
+    self.mode = mode # set mode to get correct dataset
+    
     if loader_workers < 0 :
-      loader_workers = cf.num_loader_workers
+      loader_workers = self.net.cf.num_loader_workers
     if batch_size < 0 :
-      batch_size = cf.batch_size_train if mode == NetMode.train else cf.batch_size_test
+      batch_size = self.batch_size
 
-    self.mode = mode
     loader_params = { 'batch_size': None, 'batch_sampler': None, 'shuffle': False, 
                       'num_workers': loader_workers, 'pin_memory': True}
     
