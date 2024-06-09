@@ -115,6 +115,8 @@ class MultifieldDataSampler( torch.utils.data.IterableDataset):
 
     # create (target) fields 
     self.datasets_targets = self.create_loaders( fields_targets)
+    
+    self.samples: DistributedSamples = None
 
   ###################################################
   def create_loaders( self, fields ) :
