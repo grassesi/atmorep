@@ -21,6 +21,7 @@ import itertools
 import code
 # code.interact(local=locals())
 
+from atmorep.datasets.sampling import DistributedSamples
 from atmorep.datasets.dynamic_field_level import DynamicFieldLevel
 from atmorep.datasets.static_field import StaticField
 
@@ -338,15 +339,22 @@ class MultifieldDataSampler( torch.utils.data.IterableDataset):
     for ds_field in self.datasets_targets :
       for ds in ds_field :
         ds.load_data( self.years_months, self.idxs_perm, batch_size)
+        
+  def set_sampling(self, samples: DistributedSamples):
+    self.samples = samples
 
-  ###################################################
-  def set_data( self, times_pos, batch_size = None) :
-    '''
-      times_pos = np.array( [ [year, month, day, hour, lat, lon], ...]  )
-        - lat \in [90,-90] = [90N, 90S]
-        - lon \in [0,360]
-        - (year,month) pairs should be a limited number since all data for these is loaded
-    '''
+    ###################################################
+
+  def set_data(self):
+    """
+    times_pos = np.array( [ [year, month, day, hour, lat, lon], ...]  )
+      - lat \in [90,-90] = [90N, 90S]
+      - lon \in [0,360]
+      - (year,month) pairs should be a limited number since all data for these is loaded
+    """
+
+    times_pos = self.samples.times_pos
+    batch_size = self.samples.batch_size
 
         # extract required years and months
     years_months_all = np.array(
@@ -385,84 +393,28 @@ class MultifieldDataSampler( torch.utils.data.IterableDataset):
       for ds in ds_field :
         ds.load_data( self.years_months, self.idxs_perm, batch_size)
 
-  ###################################################
-  def set_global( self, times, batch_size = None, token_overlap = [0, 0]) :
-    ''' generate patch/token positions for global grid '''
+  def get_task_subset(self, n_samples, batchsize):
+    """Distribute different subsets of batches to different MPI-tasks."""
 
-    token_overlap = torch.tensor( token_overlap).to(torch.int64)
+    my_rank = torch.distributed.get_rank()
+    world_size = torch.distributed.get_world_size()
 
-    # assumed that sanity checking that field data is consistent has been done 
-    ifield = 0
-    field = self.fields[ifield]
+    n_batches = n_samples // batchsize  # should always divide evenly
+    batches_per_task = n_batches // world_size
+    n_rest_tasks = n_batches % world_size
 
-    res = self.res
-    side_len = torch.tensor( [field[3][1] * field[4][1] * res, field[3][2] * field[4][2] * res] )
-    overlap = torch.tensor( [token_overlap[0]*field[4][1]*res, token_overlap[1]*field[4][2]*res] )
-    side_len_2 = side_len / 2.
-    assert all( overlap <= side_len_2), 'token_overlap too large for #tokens, reduce if possible'
+    gets_rest_task = my_rank < n_rest_tasks
 
-    # generate tiles
-    times_pos = []
-    for ctime in times :
+    batch_start = (my_rank) * batches_per_task + my_rank * gets_rest_task
+    batch_end = (my_rank + 1) * batches_per_task + (my_rank + 1) * gets_rest_task
 
-      lat = side_len_2[0].item()
-      num_tiles_lat = 0
-      while (lat + side_len_2[0].item()) < 180. :
-        num_tiles_lat += 1
-        lon = side_len_2[1].item() - overlap[1].item()/2.
-        num_tiles_lon = 0
-        while (lon - side_len_2[1]) < 360. :
-          times_pos += [[*ctime, -lat + 90., np.mod(lon,360.) ]]
-          lon += side_len[1].item() - overlap[1].item()
-          num_tiles_lon += 1
-        lat += side_len[0].item() - overlap[0].item()
+    sample_start, sample_end = batch_start * batchsize, batch_end * batchsize
 
-      # add one additional row if no perfect tiling (sphere is toric in longitude so no special
-      # handling necessary but not in latitude)
-      # the added row is such that it goes exaclty down to the South pole and the offset North-wards
-      # is computed based on this
-      lat -= side_len[0] - overlap[0]
-      if lat - side_len_2[0] < 180. :
-        num_tiles_lat += 1
-        lat = 180. - side_len_2[0].item() + res
-        lon = side_len_2[1].item() - overlap[1].item()/2.
-        while (lon - side_len_2[1]) < 360. :
-          times_pos += [[*ctime, -lat + 90., np.mod(lon,360.) ]]
-          lon += side_len[1].item() - overlap[1].item()
+    print(
+        f"assignment rank {my_rank}: batch {batch_start}-{batch_end}/{n_batches} (sample {sample_start}-{sample_end})"
+    )
 
-    # adjust batch size if necessary so that the evaluations split up across batches of equal size
-    batch_size = num_tiles_lon
-
-    print( 'Number of batches per global forecast: {}'.format( num_tiles_lat) )
-
-    self.set_data( times_pos, batch_size)
-
-  ###################################################
-  def set_location( self, pos, years, months, num_t_samples_per_month, batch_size = None) :
-    ''' random time sampling for fixed location '''
-
-    times_pos = []
-    for i_ym, ym in enumerate(itertools.product( years, months )) :
-
-      # ensure a constant size of work load of data loader independent of the month length 
-      # factor of 128 is a fudge parameter to ensure that mod-ing leads to sufficiently 
-      # random wrap-around (with 1 instead of 128 there is clustering on the first days)
-      hours_in_day = int( 24 / self.time_sampling)
-      d_i_m = days_in_month( ym[0], ym[1]) 
-      perms = self.rng.permutation( num_t_samples_per_month * d_i_m)
-      # ensure that days start at 1
-      perms = np.mod( perms[ : num_t_samples_per_month], (d_i_m-1) ) + 1
-      rhs = self.rng.integers(low=0, high=hours_in_day, size=num_t_samples_per_month )
-
-      for rh, perm in zip( rhs, perms) :
-        times_pos += [[ ym[0], ym[1], perm, rh, pos[0], pos[1]] ]
-
-    # adjust batch size if necessary so that the evaluations split up across batches of equal size
-    while 0 != (len(times_pos) % batch_size) :
-      batch_size -= 1
-    assert batch_size >= 1
-
-    self.set_data( times_pos, batch_size)
+    return sample_start, sample_end, batch_start, batch_end
 
   ###################################################
   def __iter__(self):
