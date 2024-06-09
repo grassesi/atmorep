@@ -122,24 +122,16 @@ class AtmoRepData( torch.nn.Module) :
     data_loader = torch.utils.data.DataLoader( dataset, **loader_params, sampler = None) 
 
     return data_loader
+  
+  def set_sampling(self, mode: NetMode, sampling: DistributedSamples, batch_size=-1, num_loader_workers=-1):
+    self._set_data(mode, batch_size, num_loader_workers)
+    self.dataset.set_sampling(sampling)
 
   ###################################################
   def set_data( self, mode : NetMode, times_pos, batch_size = -1, num_loader_workers = -1) :
     self._set_data(mode, batch_size, num_loader_workers)
     self.dataset.set_data(times_pos, batch_size)
-  
-  ###################################################
-  def set_global( self, mode : NetMode, times, batch_size = -1, num_loader_workers = -1) :
 
-    self._set_data(mode, batch_size, num_loader_workers)
-    self.dataset.set_global(times, batch_size, self.net.cf.token_overlap)
-
-  ###################################################
-  def set_location( self, mode : NetMode, pos, years, months, num_t_samples_per_month, 
-                          batch_size = -1, num_loader_workers = -1) :
-
-    self._set_data(mode, batch_size, num_loader_workers)
-    self.dataset.set_location(pos, years, months, num_t_samples_per_month, batch_size)
 
   ###################################################
   def _set_data( self, mode: NetMode, batch_size = -1, loader_workers = -1) :
